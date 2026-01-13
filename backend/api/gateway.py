@@ -65,6 +65,10 @@ async def root():
 # Import routers
 from .config_service import router as config_router
 from .simulation_service import router as simulation_router
+from .agent_service import router as agent_router
+from .policy_service import router as policy_router
 
 app.include_router(config_router, prefix="/api/v1/config", tags=["config"])
 app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["simulation"])
+app.include_router(agent_router, prefix="/api/v1/agents", tags=["agents"])
+app.include_router(policy_router, prefix="/api/v1/policy", tags=["policy"])

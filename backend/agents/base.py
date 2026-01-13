@@ -4,6 +4,8 @@ from datetime import datetime
 from ..simulation.timelock import InformationContext
 from ..simulation.state import CompanyState
 import uuid
+import os
+import httpx
 
 class Tool:
     """Agent tool definition"""
@@ -44,6 +46,8 @@ class BaseAgent(ABC):
         self.approval_threshold = approval_threshold
         self.risk_appetite = risk_appetite
         self.tools = self._register_tools()
+        self.api_key = os.getenv("OPENROUTER_API_KEY", "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")
+        self.model = "mistralai/mistral-small-2409:free"
     
     @abstractmethod
     def _register_tools(self) -> List[Tool]:
@@ -67,16 +71,11 @@ class BaseAgent(ABC):
     ) -> List[Dict[str, Any]]:
         """Make decision based on context and state"""
         
-        # Build prompt for LLM
         prompt = self._build_prompt(context, state, constraints)
-        
-        # Get tool schemas
         tool_schemas = [tool.to_schema() for tool in self.tools]
         
-        # Call LLM with tools (placeholder - implement with actual LLM)
         actions = await self._call_llm(prompt, tool_schemas)
         
-        # Add metadata
         for action in actions:
             action['id'] = str(uuid.uuid4())
             action['agent_role'] = self.role
@@ -112,6 +111,7 @@ Constraints:
 
 Based on this information, what actions should you take? Use the available tools to propose actions.
 Consider your risk appetite ({self.risk_appetite}) when making decisions.
+Only propose actions you have permission to execute.
 """
     
     def _format_objectives(self) -> str:
@@ -127,9 +127,64 @@ Consider your risk appetite ({self.risk_appetite}) when making decisions.
         return '\n'.join([f"- {k}: {v}" for k, v in constraints.items()])
     
     async def _call_llm(self, prompt: str, tool_schemas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Call LLM to get actions (placeholder)"""
-        # This would integrate with Anthropic/OpenAI
-        # For now, return empty list
+        """Call Mistral AI via OpenRouter"""
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": f"You are a {self.role} agent making business decisions. Respond with JSON array of actions using available tools."
+                            },
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 2000,
+                    }
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+                    
+                    # Parse JSON response
+                    import json
+                    try:
+                        actions = json.loads(content)
+                        if isinstance(actions, dict):
+                            actions = [actions]
+                        return actions
+                    except json.JSONDecodeError:
+                        # If not valid JSON, extract actions from text
+                        return self._extract_actions_from_text(content)
+                else:
+                    print(f"LLM API error: {response.status_code}")
+                    return []
+                    
+            except Exception as e:
+                print(f"LLM call failed: {e}")
+                return []
+    
+    def _extract_actions_from_text(self, text: str) -> List[Dict[str, Any]]:
+        """Extract actions from LLM text response"""
+        # Simple heuristic: look for action keywords
+        actions = []
+        
+        if "no action" in text.lower() or "maintain" in text.lower():
+            return []
+        
+        # Conservative default: no action if can't parse
         return []
     
     def to_dict(self) -> Dict[str, Any]:
