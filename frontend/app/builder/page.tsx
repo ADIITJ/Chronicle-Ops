@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 type IndustryTemplate = 'saas' | 'd2c' | 'manufacturing' | 'logistics' | 'fintech' | 'marketplace';
 
@@ -24,7 +25,10 @@ interface BlueprintData {
 }
 
 export default function BuilderPage() {
+    const router = useRouter();
     const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [blueprint, setBlueprint] = useState<BlueprintData>({
         name: '',
         industry: 'saas',
@@ -68,31 +72,31 @@ export default function BuilderPage() {
                     'X-Idempotency-Key': `blueprint-${Date.now()}-${Math.random()}`
                 },
                 body: JSON.stringify({
-                    name: companyName || `${selectedTemplate}-company`,
-                    industry: selectedTemplate,
+                    name: blueprint.name || `${blueprint.industry}-company`,
+                    industry: blueprint.industry,
                     initial_conditions: {
-                        cash: blueprint.initialConditions.cash, // Use blueprint state for initial conditions
+                        cash: blueprint.initialConditions.cash,
                         monthly_burn: blueprint.initialConditions.monthlyBurn,
                         headcount: blueprint.initialConditions.headcount,
-                        pricing: { base: 100 }, // Hardcoded as per instruction
-                        margins: { gross: 0.7 }, // Hardcoded as per instruction
-                        capacity: {} // Hardcoded as per instruction
+                        pricing: { base: 100 },
+                        margins: { gross: 0.7 },
+                        capacity: {}
                     },
                     constraints: {
-                        hiring_velocity_max: blueprint.constraints.hiringVelocityMax, // Use blueprint state for constraints
-                        procurement_lead_time_days: { raw_materials: [7, 14] }, // Hardcoded as per instruction
+                        hiring_velocity_max: blueprint.constraints.hiringVelocityMax,
+                        procurement_lead_time_days: { raw_materials: [7, 14] },
                         working_capital_min: blueprint.constraints.workingCapitalMin,
-                        compliance_strictness: 0.8 // Hardcoded as per instruction
+                        compliance_strictness: 0.8
                     },
                     policies: {
-                        spend_limit_monthly: blueprint.policies.spendLimitMonthly, // Use blueprint state for policies
+                        spend_limit_monthly: blueprint.policies.spendLimitMonthly,
                         approval_threshold: blueprint.policies.approvalThreshold,
-                        max_percent_change: { pricing: 0.2, headcount: 0.3 }, // Hardcoded as per instruction
+                        max_percent_change: { pricing: 0.2, headcount: 0.3 },
                         risk_appetite: blueprint.policies.riskAppetite
                     },
                     market_exposure: {
-                        volatility: 0.3, // Hardcoded as per instruction
-                        seasonality: 0.1 // Hardcoded as per instruction
+                        volatility: 0.3,
+                        seasonality: 0.1
                     }
                 }),
             });
@@ -415,7 +419,7 @@ export default function BuilderPage() {
                             {step < 4 ? (
                                 <button
                                     onClick={() => setStep(step + 1)}
-                                    disabled={step === 1 && !selectedTemplate}
+                                    disabled={step === 1 && !blueprint.name}
                                     className="btn-primary ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Next
@@ -423,7 +427,7 @@ export default function BuilderPage() {
                             ) : (
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={loading || !selectedTemplate}
+                                    disabled={loading || !blueprint.name}
                                     className="btn-primary ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Creating...' : 'Create Blueprint'}
