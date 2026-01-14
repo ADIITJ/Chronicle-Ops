@@ -1,24 +1,21 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from typing import Dict, Any
+from fastapi.responses import JSONResponse
 import time
-from ..shared.auth import get_current_user, AuthContext
-from ..shared.database import get_db_dependency
-from sqlalchemy.orm import Session
-import redis
 import os
 
 app = FastAPI(
     title="ChronicleOps API",
-    description="Time-locked multi-agent company simulation platform",
+    description="Autonomous Company Simulation Platform",
     version="1.0.0"
 )
 
-# CORS
+# CORS middleware - allow frontend to make requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
