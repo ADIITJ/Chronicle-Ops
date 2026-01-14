@@ -73,6 +73,12 @@ export default function OrgDesignerPage() {
                 approvalThreshold: 100000,
                 riskAppetite: 0.2,
             },
+            population: {
+                objectives: { product_satisfaction: 0.3, value_perception: 0.25, brand_trust: 0.25, market_fit: 0.2 },
+                permissions: ['influence_demand', 'affect_conversion', 'impact_reputation', 'drive_virality'],
+                approvalThreshold: 0,
+                riskAppetite: 0.5,
+            },
         };
 
         const defaults = roleDefaults[role] || {};
