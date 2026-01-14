@@ -14,12 +14,15 @@ class SimulationEngine:
         blueprint: Dict[str, Any],
         timeline: Dict[str, Any],
         seed: int,
-        tick_days: int = 7  # Weekly ticks by default
+        tick_days: int = 7,  # Weekly ticks by default
+        run_id: Optional[str] = None
     ):
         self.blueprint = blueprint
         self.timeline = timeline
         self.seed = seed
         self.tick_days = tick_days
+        self.run_id = run_id or 'test-run'
+        self.current_tick = 0
         
         # Initialize RNG with seed for determinism
         self.rng = random.Random(seed)
@@ -40,6 +43,10 @@ class SimulationEngine:
         self.state_history: List[CompanyState] = [self.state]
         self.transitions: List[StateTransition] = []
         self.checkpoints: Dict[str, CompanyState] = {}
+        
+        # Event tracking
+        self.active_events: List[Dict[str, Any]] = []
+        self.event_history: List[Dict[str, Any]] = []
     
     def _initialize_state(self) -> CompanyState:
         """Create initial state from blueprint"""
@@ -67,13 +74,21 @@ class SimulationEngine:
             metadata={'growth_rate': 0.0}
         )
     
-    def get_information_context(self) -> InformationContext:
+    def get_information_context(self) -> Dict[str, Any]:
         """Get time-locked information context for agents"""
-        return InformationContext(
+        base_context = InformationContext(
             current_time=self.current_time,
             timelock=self.timelock,
             events=self.encrypted_events
         )
+        
+        # Add active events that agents should be aware of
+        return {
+            **base_context.__dict__,
+            'active_events': self.active_events,
+            'recent_events': self.event_history[-5:] if self.event_history else [],
+            'current_tick': self.current_tick
+        }
     
     def apply_action(self, action: Dict[str, Any], agent_role: Optional[str] = None) -> bool:
         """Apply agent action to state (idempotent if action has unique ID)"""
@@ -149,16 +164,30 @@ class SimulationEngine:
         if self.current_time >= self.end_time:
             return False
         
+        # Increment tick counter
+        self.current_tick += 1
+        
         # Advance time
         self.current_time += timedelta(days=self.tick_days)
         
         # Process events at this time
         context = self.get_information_context()
-        events = context.get_observable_events()
+        events = context.get('active_events', []) if isinstance(context, dict) else []
         
+        # Clear expired events
+        self.active_events = [e for e in self.active_events 
+                             if datetime.fromisoformat(e['timestamp']) + timedelta(days=e.get('duration_days', 7)) > self.current_time]
+        
+        # Add new events
         for event in events:
             event_time = datetime.fromisoformat(event['timestamp'])
             if abs((event_time - self.current_time).days) < self.tick_days:
+                self.active_events.append(event)
+                self.event_history.append({
+                    **event,
+                    'activated_at': self.current_time.isoformat(),
+                    'tick': self.current_tick
+                })
                 self._apply_event(event)
         
         # Update state based on time passage

@@ -81,13 +81,63 @@ class AgentOrchestrator:
     
     async def _store_market_state(self, market_evaluation: Dict[str, Any]):
         """Store market state to database"""
-        # TODO: Implement database storage
-        pass
+        from ..shared.agent_models import MarketState
+        from ..shared.database import SessionLocal
+        from datetime import datetime
+        import uuid
+        
+        db = SessionLocal()
+        try:
+            market_state = MarketState(
+                id=str(uuid.uuid4()),
+                run_id=self.simulation.run_id if hasattr(self.simulation, 'run_id') else 'test-run',
+                tick=self.simulation.current_tick if hasattr(self.simulation, 'current_tick') else 0,
+                sentiment_score=market_evaluation.get('sentiment_score', 0.5),
+                awareness_level=market_evaluation.get('awareness_level', 0.1),
+                trust_level=market_evaluation.get('trust_level', 0.5),
+                viral_coefficient=market_evaluation.get('viral_coefficient', 1.0),
+                market_dynamics=market_evaluation.get('market_dynamics', {}),
+                price_perception=market_evaluation.get('price_perception'),
+                quality_perception=market_evaluation.get('quality_perception'),
+                brand_strength=market_evaluation.get('brand_strength'),
+                created_at=datetime.utcnow()
+            )
+            db.add(market_state)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Error storing market state: {e}")
+        finally:
+            db.close()
     
     async def _store_agent_decision(self, agent_role: str, observations: Dict[str, Any], decision: Dict[str, Any]):
         """Store agent decision to database"""
-        # TODO: Implement database storage
-        pass
+        from ..shared.agent_models import AgentDecision
+        from ..shared.database import SessionLocal
+        from datetime import datetime
+        import uuid
+        
+        db = SessionLocal()
+        try:
+            agent_decision = AgentDecision(
+                id=str(uuid.uuid4()),
+                run_id=self.simulation.run_id if hasattr(self.simulation, 'run_id') else 'test-run',
+                tick=self.simulation.current_tick if hasattr(self.simulation, 'current_tick') else 0,
+                agent_role=agent_role,
+                observations=observations,
+                reasoning=decision.get('reasoning', ''),
+                proposed_actions=[decision] if not isinstance(decision, list) else decision,
+                approved=False,
+                executed=False,
+                created_at=datetime.utcnow()
+            )
+            db.add(agent_decision)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Error storing agent decision: {e}")
+        finally:
+            db.close()
     
     async def _evaluate_and_execute(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate action through policy engine and execute if approved"""
