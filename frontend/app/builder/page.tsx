@@ -44,9 +44,9 @@ export default function BuilderPage() {
         },
     });
 
-    const industries: { id: IndustryTemplate; name: string; description: string }[] = [
-        { id: 'saas', name: 'SaaS', description: 'Pipeline → Bookings → Revenue with churn dynamics' },
-        { id: 'd2c', name: 'D2C', description: 'Demand → Fulfillment → Returns with inventory management' },
+    const templates: { id: IndustryTemplate; name: string; description: string }[] = [
+        { id: 'saas', name: 'SaaS', description: 'Recurring revenue and churn management' },
+        { id: 'd2c', name: 'D2C', description: 'Inventory, fulfillment, and customer acquisition' },
         { id: 'manufacturing', name: 'Manufacturing', description: 'Lead times, supplier reliability, safety stock' },
         { id: 'logistics', name: 'Logistics', description: 'Supply chain optimization and service levels' },
         { id: 'fintech', name: 'Fintech', description: 'Regulatory compliance and risk management' },
@@ -54,23 +54,64 @@ export default function BuilderPage() {
     ];
 
     const handleSubmit = async () => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/api/v1/config/blueprints`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: blueprint.name,
-                industry: blueprint.industry,
-                initial_conditions: blueprint.initialConditions,
-                constraints: blueprint.constraints,
-                policies: blueprint.policies,
-                market_exposure: {},
-            }),
-        });
+        if (loading) return; // Prevent double-click
 
-        if (response.ok) {
+        setLoading(true);
+        setError('');
+
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+            const response = await fetch(`${apiUrl}/api/v1/config/blueprints`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Idempotency-Key': `blueprint-${Date.now()}-${Math.random()}`
+                },
+                body: JSON.stringify({
+                    name: companyName || `${selectedTemplate}-company`,
+                    industry: selectedTemplate,
+                    initial_conditions: {
+                        cash: blueprint.initialConditions.cash, // Use blueprint state for initial conditions
+                        monthly_burn: blueprint.initialConditions.monthlyBurn,
+                        headcount: blueprint.initialConditions.headcount,
+                        pricing: { base: 100 }, // Hardcoded as per instruction
+                        margins: { gross: 0.7 }, // Hardcoded as per instruction
+                        capacity: {} // Hardcoded as per instruction
+                    },
+                    constraints: {
+                        hiring_velocity_max: blueprint.constraints.hiringVelocityMax, // Use blueprint state for constraints
+                        procurement_lead_time_days: { raw_materials: [7, 14] }, // Hardcoded as per instruction
+                        working_capital_min: blueprint.constraints.workingCapitalMin,
+                        compliance_strictness: 0.8 // Hardcoded as per instruction
+                    },
+                    policies: {
+                        spend_limit_monthly: blueprint.policies.spendLimitMonthly, // Use blueprint state for policies
+                        approval_threshold: blueprint.policies.approvalThreshold,
+                        max_percent_change: { pricing: 0.2, headcount: 0.3 }, // Hardcoded as per instruction
+                        risk_appetite: blueprint.policies.riskAppetite
+                    },
+                    market_exposure: {
+                        volatility: 0.3, // Hardcoded as per instruction
+                        seasonality: 0.1 // Hardcoded as per instruction
+                    }
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+
             const data = await response.json();
-            window.location.href = `/simulations/${data.id}`;
+            console.log('Blueprint created:', data);
+
+            // Success - redirect to org designer
+            router.push('/org');
+        } catch (err: any) {
+            console.error('Failed to create blueprint:', err);
+            setError(err.message || 'Failed to create blueprint. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -365,14 +406,36 @@ export default function BuilderPage() {
                                 />
                             </div>
                         </div>
-                        <div className="mt-6 flex justify-between">
-                            <button onClick={() => setStep(3)} className="btn-secondary">
-                                Back
-                            </button>
-                            <button onClick={handleSubmit} className="btn-primary">
-                                Create Blueprint
-                            </button>
+                        <div className="flex justify-between mt-8">
+                            {step > 1 && (
+                                <button onClick={() => setStep(step - 1)} className="btn-secondary">
+                                    Back
+                                </button>
+                            )}
+                            {step < 4 ? (
+                                <button
+                                    onClick={() => setStep(step + 1)}
+                                    disabled={step === 1 && !selectedTemplate}
+                                    className="btn-primary ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Next
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={loading || !selectedTemplate}
+                                    className="btn-primary ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? 'Creating...' : 'Create Blueprint'}
+                                </button>
+                            )}
                         </div>
+
+                        {error && (
+                            <div className="mt-4 p-4 bg-red-500/20 border border-red-500 rounded-lg text-red-400">
+                                {error}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

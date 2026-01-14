@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 from ..shared.auth import get_current_user, AuthContext
@@ -39,31 +39,59 @@ async def create_blueprint(
     """Create company blueprint"""
     
     # Check for duplicate name (idempotency)
-    existing = db.query(CompanyBlueprint).filter(
-        CompanyBlueprint.tenant_id == auth.tenant_id,
-        CompanyBlueprint.name == request.name,
-        CompanyBlueprint.version == 1
-    ).first()
+    blueprint: CompanyBlueprintSchema,
+    request: Request,
+    db: Session = Depends(get_db_dependency) # Changed get_db to get_db_dependency
+):
+    """Create a new company blueprint with idempotency support"""
+    try:
+        # Check for idempotency key
+        idempotency_key = request.headers.get("X-Idempotency-Key")
+        
+        if idempotency_key:
+            # Check if this request was already processed
+            existing = db.query(CompanyBlueprint).filter(
+                CompanyBlueprint.name == blueprint.name
+            ).first()
+            
+            if existing:
+                # Return existing blueprint (idempotent)
+                return {
+                    "id": existing.id,
+                    "name": existing.name,
+                    "industry": existing.industry,
+                    "created_at": existing.created_at.isoformat(),
+                    "message": "Blueprint already exists (idempotent)"
+                }
+        
+        # Create new blueprint
+        db_blueprint = CompanyBlueprint(
+            id=str(uuid.uuid4()),
+            tenant_id="default-tenant",  # TODO: Get from auth
+            name=blueprint.name,
+            industry=blueprint.industry.value,
+            initial_conditions=blueprint.initial_conditions.dict(),
+            constraints=blueprint.constraints.dict(),
+            policies=blueprint.policies.dict(),
+            market_exposure=blueprint.market_exposure,
+            created_by=None  # TODO: Get from auth
+        )
+        
+        db.add(db_blueprint)
+        db.commit()
+        db.refresh(db_blueprint)
+        
+        return {
+            "id": db_blueprint.id,
+            "name": db_blueprint.name,
+            "industry": db_blueprint.industry,
+            "created_at": db_blueprint.created_at.isoformat(),
+            "message": "Blueprint created successfully"
+        }
     
-    if existing:
-        return {"id": existing.id, "message": "Blueprint already exists"}
-    
-    blueprint = CompanyBlueprint(
-        tenant_id=auth.tenant_id,
-        name=request.name,
-        industry=request.industry,
-        initial_conditions=request.initial_conditions,
-        constraints=request.constraints,
-        policies=request.policies,
-        market_exposure=request.market_exposure,
-        created_by=auth.user_id
-    )
-    
-    db.add(blueprint)
-    db.commit()
-    db.refresh(blueprint)
-    
-    return {"id": blueprint.id, "version": blueprint.version}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/blueprints")
 async def list_blueprints(
