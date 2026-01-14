@@ -54,7 +54,8 @@ export default function BuilderPage() {
     ];
 
     const handleSubmit = async () => {
-        const response = await fetch(`${process.env.API_URL}/api/v1/config/blueprints`, {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/api/v1/config/blueprints`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -87,8 +88,8 @@ export default function BuilderPage() {
                         <div key={s} className="flex items-center">
                             <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${s <= step
-                                        ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white'
-                                        : 'glass text-gray-400'
+                                    ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white'
+                                    : 'glass text-gray-400'
                                     }`}
                             >
                                 {s}
@@ -113,8 +114,8 @@ export default function BuilderPage() {
                                     key={ind.id}
                                     onClick={() => setBlueprint({ ...blueprint, industry: ind.id })}
                                     className={`p-6 rounded-lg text-left transition-all ${blueprint.industry === ind.id
-                                            ? 'bg-gradient-to-br from-primary-600/30 to-accent-600/30 border-2 border-primary-500'
-                                            : 'glass hover:bg-white/20'
+                                        ? 'bg-gradient-to-br from-primary-600/30 to-accent-600/30 border-2 border-primary-500'
+                                        : 'glass hover:bg-white/20'
                                         }`}
                                 >
                                     <h3 className="text-xl font-bold mb-2">{ind.name}</h3>
