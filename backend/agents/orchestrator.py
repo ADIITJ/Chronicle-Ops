@@ -27,11 +27,32 @@ class AgentOrchestrator:
         constraints = self.simulation.blueprint.get('constraints', {})
         
         all_actions = []
+        market_dynamics = {}
         
-        # Get decisions from each agent in parallel
+        # STEP 1: Run Population agent FIRST to establish market conditions
+        if 'population' in self.agents:
+            population_agent = self.agents['population']
+            market_evaluation = population_agent.evaluate_state(state.to_dict(), context)
+            market_dynamics = market_evaluation.get('market_dynamics', {})
+            
+            # Store market state in database
+            await self._store_market_state(market_evaluation)
+            
+            # Get market influence actions
+            population_influences = await population_agent.decide(state.to_dict(), context)
+            all_actions.extend(population_influences)
+        
+        # STEP 2: Run other agents with market context
         tasks = []
-        for agent in self.agents.values():
-            tasks.append(agent.decide(context, state, constraints))
+        enhanced_context = {
+            **context,
+            'market_dynamics': market_dynamics,
+            'market_sentiment': market_dynamics.get('demand_multiplier', 1.0)
+        }
+        
+        for role, agent in self.agents.items():
+            if role != 'population':  # Skip population, already ran
+                tasks.append(self._get_agent_decision(agent, enhanced_context, state, constraints))
         
         agent_decisions = await asyncio.gather(*tasks)
         
@@ -47,6 +68,26 @@ class AgentOrchestrator:
             results.append(result)
         
         return results
+    
+    async def _get_agent_decision(self, agent: BaseAgent, context: Dict[str, Any], state: Any, constraints: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Get decision from a single agent with full context"""
+        decisions = await agent.decide(context, state.to_dict(), constraints)
+        
+        # Store agent decision in database
+        for decision in decisions:
+            await self._store_agent_decision(agent.role, context, decision)
+        
+        return decisions
+    
+    async def _store_market_state(self, market_evaluation: Dict[str, Any]):
+        """Store market state to database"""
+        # TODO: Implement database storage
+        pass
+    
+    async def _store_agent_decision(self, agent_role: str, observations: Dict[str, Any], decision: Dict[str, Any]):
+        """Store agent decision to database"""
+        # TODO: Implement database storage
+        pass
     
     async def _evaluate_and_execute(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Evaluate action through policy engine and execute if approved"""
