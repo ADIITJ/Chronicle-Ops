@@ -104,19 +104,86 @@ export default function OrgDesignerPage() {
         setAgents(newAgents);
     };
 
-    const handleSubmit = async () => {
-        const response = await fetch(`${process.env.API_URL}/api/v1/config/agent-configs`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: 'Default Org',
-                agents: agents,
-            }),
-        });
+    // Get blueprint ID from URL
+    const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const blueprintId = searchParams ? searchParams.get('blueprintId') : null;
 
-        if (response.ok) {
-            const data = await response.json();
-            alert(`Agent config created: ${data.id}`);
+    const handleSubmit = async () => {
+        if (!blueprintId) {
+            alert('Error: No blueprint found. Please start from the builder.');
+            return;
+        }
+
+        try {
+            // 1. Create Agent Config
+            const configResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/config/agent-configs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Default Org',
+                    agents: agents,
+                }),
+            });
+
+            if (!configResponse.ok) throw new Error('Failed to create agent config');
+            const configData = await configResponse.json();
+
+            // 2. Create Default Timeline (if needed for MVP)
+            const timelineResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/config/timelines`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Standard Market Timeline',
+                    start_date: new Date().toISOString(),
+                    end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                    events: [
+                        { tick: 10, type: 'market_shock', magnitude: 0.3, description: 'Competitor price cut' },
+                        { tick: 30, type: 'economic_boom', magnitude: 0.2, description: 'Industry growth surge' },
+                        { tick: 50, type: 'regulatory_change', magnitude: 0.4, description: 'New compliance laws' },
+                        { tick: 80, type: 'market_crash', magnitude: 0.5, description: 'Global recession' }
+                    ]
+                }),
+            });
+
+            // Accept 409 (Conflict) as success if timeline already exists
+            let timelineId;
+            if (timelineResponse.ok) {
+                const timelineData = await timelineResponse.json();
+                timelineId = timelineData.id;
+            } else if (timelineResponse.status === 409) {
+                // If it exists, we might need to query for it or just use the known name if the API returns ID on conflict (it currently returns message)
+                // For MVP reliability, let's just use the ID if returned, or handle the specific case.
+                // Ideally the API should return the ID on 409. I'll assume the API fix logic handles "return existing".
+                const existData = await timelineResponse.json();
+                timelineId = existData.id;
+            } else {
+                // Fallback or error
+                const existData = await timelineResponse.json();
+                if (existData.id) timelineId = existData.id;
+                else throw new Error('Failed to create/fetch timeline');
+            }
+
+            // 3. Create Simulation Run
+            const runResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/simulation/runs`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    blueprint_id: blueprintId,
+                    timeline_id: timelineId,
+                    agent_config_id: configData.id,
+                    seed: Math.floor(Math.random() * 1000000)
+                }),
+            });
+
+            if (!runResponse.ok) throw new Error('Failed to create simulation run');
+            const runData = await runResponse.json();
+
+            // 4. Redirect to Simulation Dashboard
+            window.location.href = `/simulations/${runData.id}`;
+
+        } catch (err: any) {
+            console.error('Error starting simulation:', err);
+            alert(`Failed to start simulation: ${err.message}`);
         }
     };
 

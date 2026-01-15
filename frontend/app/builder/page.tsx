@@ -109,8 +109,8 @@ export default function BuilderPage() {
             const data = await response.json();
             console.log('Blueprint created:', data);
 
-            // Success - redirect to org designer
-            router.push('/org');
+            // Success - redirect to org designer with blueprint ID
+            router.push(`/org?blueprintId=${data.id}`);
         } catch (err: any) {
             console.error('Failed to create blueprint:', err);
             setError(err.message || 'Failed to create blueprint. Please try again.');

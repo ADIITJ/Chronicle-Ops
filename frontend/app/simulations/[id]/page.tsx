@@ -17,29 +17,47 @@ interface SimulationMetrics {
 
 export default function SimulationPage({ params }: { params: { id: string } }) {
     const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
-    const [status, setStatus] = useState<string>('created');
-    const [history, setHistory] = useState<any[]>([]);
+    const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
         fetchState();
+        fetchEvents();
     }, []);
 
     const fetchState = async () => {
-        const response = await fetch(`${process.env.API_URL}/api/v1/simulation/runs/${params.id}/state`);
+        const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${url}/api/v1/simulation/runs/${params.id}/state`);
         const data = await response.json();
         setMetrics(data.metrics);
         setStatus(data.status);
     };
 
+    const fetchEvents = async () => {
+        const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        // Mocking events endpoint for now or using the one from agent-data
+        // We'll use the event-responses endpoint to deduce what happened
+        try {
+            const response = await fetch(`${url}/api/v1/agent-data/event-responses/${params.id}`);
+            if (response.ok) {
+                const data = await response.json();
+                setEvents(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch events", e);
+        }
+    };
+
     const startSimulation = async () => {
-        await fetch(`${process.env.API_URL}/api/v1/simulation/runs/${params.id}/start`, {
+        const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        await fetch(`${url}/api/v1/simulation/runs/${params.id}/start`, {
             method: 'POST',
         });
         setStatus('running');
     };
 
     const tickSimulation = async (ticks: number = 1) => {
-        const response = await fetch(`${process.env.API_URL}/api/v1/simulation/runs/${params.id}/tick`, {
+        const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${url}/api/v1/simulation/runs/${params.id}/tick`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticks }),
@@ -49,7 +67,8 @@ export default function SimulationPage({ params }: { params: { id: string } }) {
         setStatus(data.status);
 
         // Add to history
-        setHistory([...history, data.metrics]);
+        setHistory(prev => [...prev, { ...data.metrics, current_time: data.current_time }]);
+        fetchEvents(); // Refresh events
     };
 
     if (!metrics) {
@@ -184,18 +203,44 @@ export default function SimulationPage({ params }: { params: { id: string } }) {
                 )}
 
                 {/* Current State */}
-                <div className="card">
-                    <h2 className="text-2xl font-bold mb-4">Current State</h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <div className="text-sm text-gray-400">Simulation Time</div>
-                            <div className="text-lg font-medium">
-                                {new Date(metrics.current_time).toLocaleDateString()}
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="card">
+                        <h2 className="text-2xl font-bold mb-4">Current Status</h2>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <div className="text-sm text-gray-400">Simulation Time</div>
+                                <div className="text-lg font-medium">
+                                    {new Date(metrics.current_time).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Status</div>
+                                <div className="text-lg font-medium capitalize">{status}</div>
                             </div>
                         </div>
-                        <div>
-                            <div className="text-sm text-gray-400">Status</div>
-                            <div className="text-lg font-medium capitalize">{status}</div>
+                    </div>
+
+                    <div className="card">
+                        <h2 className="text-2xl font-bold mb-4">World Events & Alerts</h2>
+                        <div className="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {events.length === 0 ? (
+                                <p className="text-gray-500 italic">No significant events yet...</p>
+                            ) : (
+                                events.map((evt, i) => (
+                                    <div key={i} className="p-3 glass rounded border-l-4 border-yellow-500 bg-white/5">
+                                        <div className="flex justify-between items-start">
+                                            <span className="text-xs font-mono text-gray-400">Tick {evt.tick}</span>
+                                            <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 capitalize">{evt.agent_role}</span>
+                                        </div>
+                                        <p className="mt-1 text-sm">{evt.response_text || 'Reacted to market changes'}</p>
+                                        <div className="mt-2 text-xs flex flex-wrap gap-1">
+                                            {Object.entries(evt.actions_taken || {}).map(([k, v]) => (
+                                                <span key={k} className="px-1.5 py-0.5 bg-gray-700/50 rounded text-gray-300">{k}: {String(v)}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>
