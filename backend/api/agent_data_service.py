@@ -1,28 +1,32 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Dict, Any
-from datetime import datetime
 from sqlalchemy.orm import Session
-from ..shared.database import get_db
-from ..shared.agent_models import AgentDecision, MarketState, EventResponse
-from ..shared.auth import get_current_user
+from typing import List
 
-router = APIRouter(prefix="/api/v1/simulation/runs", tags=["agent-data"])
+router = APIRouter()
 
-@router.get("/{run_id}/agent-decisions")
+def get_db():
+    from ..shared.database import SessionLocal
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@router.get("/decisions/{run_id}")
 async def get_agent_decisions(
     run_id: str,
-    agent: str = "all",
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    agent_role: str = None,
+    db: Session = Depends(get_db)
 ):
-    """Get agent decision history"""
+    """Get agent decisions for a run"""
+    from ..shared.agent_models import AgentDecision
+    
     query = db.query(AgentDecision).filter(AgentDecision.run_id == run_id)
     
-    if agent != "all":
-        query = query.filter(AgentDecision.agent_role == agent)
+    if agent_role:
+        query = query.filter(AgentDecision.agent_role == agent_role)
     
-    decisions = query.order_by(AgentDecision.tick.desc()).limit(limit).all()
+    decisions = query.order_by(AgentDecision.tick.desc()).limit(100).all()
     
     return [
         {
@@ -39,13 +43,14 @@ async def get_agent_decisions(
         for d in decisions
     ]
 
-@router.get("/{run_id}/market-state")
-async def get_current_market_state(
+@router.get("/market-state/{run_id}")
+async def get_market_state(
     run_id: str,
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
-    """Get current market state"""
+    """Get latest market state"""
+    from ..shared.agent_models import MarketState
+    
     state = db.query(MarketState).filter(
         MarketState.run_id == run_id
     ).order_by(MarketState.tick.desc()).first()
@@ -59,69 +64,52 @@ async def get_current_market_state(
         "awareness_level": state.awareness_level,
         "trust_level": state.trust_level,
         "viral_coefficient": state.viral_coefficient,
-        "market_dynamics": state.market_dynamics,
-        "price_perception": state.price_perception,
-        "quality_perception": state.quality_perception,
-        "brand_strength": state.brand_strength
+        "market_dynamics": state.market_dynamics
     }
 
-@router.get("/{run_id}/market-history")
+@router.get("/market-history/{run_id}")
 async def get_market_history(
     run_id: str,
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """Get market state history"""
+    from ..shared.agent_models import MarketState
+    
     states = db.query(MarketState).filter(
         MarketState.run_id == run_id
     ).order_by(MarketState.tick.asc()).all()
     
-    current = states[-1] if states else None
-    
-    return {
-        "current": {
-            "sentiment_score": current.sentiment_score,
-            "awareness_level": current.awareness_level,
-            "trust_level": current.trust_level,
-            "viral_coefficient": current.viral_coefficient,
-            "market_dynamics": current.market_dynamics
-        } if current else None,
-        "history": [
-            {
-                "tick": s.tick,
-                "sentiment_score": s.sentiment_score,
-                "awareness_level": s.awareness_level,
-                "trust_level": s.trust_level,
-                "viral_coefficient": s.viral_coefficient,
-                "demand_multiplier": s.market_dynamics.get("demand_multiplier", 1.0)
-            }
-            for s in states
-        ]
-    }
+    return [
+        {
+            "tick": s.tick,
+            "sentiment_score": s.sentiment_score,
+            "awareness_level": s.awareness_level,
+            "trust_level": s.trust_level,
+            "viral_coefficient": s.viral_coefficient
+        }
+        for s in states
+    ]
 
-@router.get("/{run_id}/event-responses")
+@router.get("/event-responses/{run_id}")
 async def get_event_responses(
     run_id: str,
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    current_user: Dict = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
-    """Get agent responses to events"""
+    """Get event responses"""
+    from ..shared.agent_models import EventResponse
+    
     responses = db.query(EventResponse).filter(
         EventResponse.run_id == run_id
-    ).order_by(EventResponse.tick.desc()).limit(limit).all()
+    ).order_by(EventResponse.tick.desc()).limit(50).all()
     
     return [
         {
             "id": r.id,
             "tick": r.tick,
+            "event_id": r.event_id,
             "agent_role": r.agent_role,
-            "event_type": r.event_type,
-            "event_description": r.event_description,
-            "agent_response": r.agent_response,
-            "actions_taken": r.actions_taken,
-            "response_time_ms": r.response_time_ms,
-            "created_at": r.created_at.isoformat()
+            "response_text": r.response_text,
+            "actions_taken": r.actions_taken
         }
         for r in responses
     ]
