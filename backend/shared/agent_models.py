@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Dict, Any, List
 from sqlalchemy import Column, String, Integer, DateTime, JSON, ForeignKey, Text, Boolean, Float
 from sqlalchemy.dialects.postgresql import JSONB
-from ..shared.models import Base
+from shared.models import Base
 import uuid
 
 class AgentDecision(Base):
