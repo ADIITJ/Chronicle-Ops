@@ -32,7 +32,7 @@ async def get_agent_decisions(
     db: Session = Depends(get_db)
 ):
     """Get agent decisions for a run"""
-    from ..shared.agent_models import AgentDecision
+    from shared.agent_models import AgentDecision
     
     decisions = db.query(AgentDecision).filter(
         AgentDecision.run_id == run_id

@@ -8,7 +8,7 @@ import uuid
 router = APIRouter()
 
 def get_db():
-    from ..shared.database import SessionLocal
+    from shared.database import SessionLocal
     db = SessionLocal()
     try:
         yield db
@@ -27,7 +27,7 @@ async def start_simulation(
     db: Session = Depends(get_db)
 ):
     """Start a new simulation run"""
-    from ..shared.models import SimulationRun
+    from shared.models import SimulationRun
     
     try:
         run = SimulationRun(
@@ -62,7 +62,7 @@ async def get_simulation_run(
     db: Session = Depends(get_db)
 ):
     """Get simulation run details"""
-    from ..shared.models import SimulationRun
+    from shared.models import SimulationRun
     
     run = db.query(SimulationRun).filter(SimulationRun.id == run_id).first()
     

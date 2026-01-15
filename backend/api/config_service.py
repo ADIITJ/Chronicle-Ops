@@ -28,7 +28,7 @@ class CreateAgentConfigRequest(BaseModel):
     agents: List[dict]
 
 def get_db():
-    from ..shared.database import SessionLocal
+    from shared.database import SessionLocal
     db = SessionLocal()
     try:
         yield db
@@ -42,7 +42,7 @@ async def create_blueprint(
     db: Session = Depends(get_db)
 ):
     """Create company blueprint with idempotency"""
-    from ..shared.models import CompanyBlueprint
+    from shared.models import CompanyBlueprint
     
     idempotency_key = req.headers.get("X-Idempotency-Key")
     
@@ -110,7 +110,7 @@ async def create_blueprint(
 @router.get("/blueprints")
 async def list_blueprints(db: Session = Depends(get_db)):
     """List all blueprints"""
-    from ..shared.models import CompanyBlueprint
+    from shared.models import CompanyBlueprint
     
     blueprints = db.query(CompanyBlueprint).all()
     
@@ -131,7 +131,7 @@ async def create_timeline(
     db: Session = Depends(get_db)
 ):
     """Create event timeline with idempotency"""
-    from ..shared.models import EventTimeline
+    from shared.models import EventTimeline
     
     try:
         existing = db.query(EventTimeline).filter(

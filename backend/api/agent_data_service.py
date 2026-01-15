@@ -5,7 +5,7 @@ from typing import List
 router = APIRouter()
 
 def get_db():
-    from ..shared.database import SessionLocal
+    from shared.database import SessionLocal
     db = SessionLocal()
     try:
         yield db
@@ -19,7 +19,7 @@ async def get_agent_decisions(
     db: Session = Depends(get_db)
 ):
     """Get agent decisions for a run"""
-    from ..shared.agent_models import AgentDecision
+    from shared.agent_models import AgentDecision
     
     query = db.query(AgentDecision).filter(AgentDecision.run_id == run_id)
     

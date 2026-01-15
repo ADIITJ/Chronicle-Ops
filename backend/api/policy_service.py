@@ -6,7 +6,7 @@ from typing import Dict, Any
 router = APIRouter()
 
 def get_db():
-    from ..shared.database import SessionLocal
+    from shared.database import SessionLocal
     db = SessionLocal()
     try:
         yield db
