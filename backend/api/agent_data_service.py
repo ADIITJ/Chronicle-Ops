@@ -96,7 +96,7 @@ async def get_event_responses(
     db: Session = Depends(get_db)
 ):
     """Get event responses"""
-    from ..shared.agent_models import EventResponse
+    from shared.agent_models import EventResponse
     
     responses = db.query(EventResponse).filter(
         EventResponse.run_id == run_id
