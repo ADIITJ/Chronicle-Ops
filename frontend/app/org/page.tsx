@@ -139,8 +139,14 @@ export default function OrgDesignerPage() {
                     events: [
                         { tick: 10, type: 'market_shock', magnitude: 0.3, description: 'Competitor price cut' },
                         { tick: 30, type: 'economic_boom', magnitude: 0.2, description: 'Industry growth surge' },
-                        { tick: 50, type: 'regulatory_change', magnitude: 0.4, description: 'New compliance laws' },
-                        { tick: 80, type: 'market_crash', magnitude: 0.5, description: 'Global recession' }
+                        { tick: 60, type: 'technology_breakthrough', magnitude: 0.4, description: 'AI Boom: Efficiency skyrockets' },
+                        { tick: 90, type: 'regulatory_change', magnitude: 0.4, description: 'New compliance laws (GDPR 2.0)' },
+                        { tick: 120, type: 'market_crash', magnitude: 0.5, description: 'Housing Market Crash' },
+                        { tick: 150, type: 'geopolitical_event', magnitude: 0.6, description: 'War in supply region triggers shortages' },
+                        { tick: 180, type: 'pandemic', magnitude: 0.7, description: 'Global Pandemic (COVID-19 style)' },
+                        { tick: 210, type: 'recovery', magnitude: 0.3, description: 'Post-crisis recovery boom' },
+                        { tick: 240, type: 'technology_breakthrough', magnitude: 0.5, description: 'IT/Internet Boom' },
+                        { tick: 300, type: 'economic_policy', magnitude: 0.2, description: 'New Tariffs imposed on imports' }
                     ]
                 }),
             });

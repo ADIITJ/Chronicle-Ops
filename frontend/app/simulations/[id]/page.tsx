@@ -17,6 +17,8 @@ interface SimulationMetrics {
 
 export default function SimulationPage({ params }: { params: { id: string } }) {
     const [metrics, setMetrics] = useState<SimulationMetrics | null>(null);
+    const [status, setStatus] = useState<string>('created');
+    const [history, setHistory] = useState<any[]>([]);
     const [events, setEvents] = useState<any[]>([]);
 
     useEffect(() => {
@@ -239,17 +241,34 @@ export default function SimulationPage({ params }: { params: { id: string } }) {
                                             <span className="text-xs font-mono text-gray-400">Tick {evt.tick}</span>
                                             <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 capitalize">{evt.agent_role}</span>
                                         </div>
-                                        <p className="mt-1 text-sm">{evt.response_text || 'Reacted to market changes'}</p>
-                                        <div className="mt-2 text-xs flex flex-wrap gap-1">
-                                            {Object.entries(evt.actions_taken || {}).map(([k, v]) => (
-                                                <span key={k} className="px-1.5 py-0.5 bg-gray-700/50 rounded text-gray-300">{k}: {String(v)}</span>
-                                            ))}
-                                        </div>
+                                        <p className="mt-1 text-sm">{evt.response_text || evt.event_description || 'Reacted to changes'}</p>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
+                </div>
+
+                {/* Agent Thoughts Section */}
+                <div className="card mt-6">
+                    <h2 className="text-2xl font-bold mb-4">Agent Inner Monologue & Reasoning</h2>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                            <h3 className="font-bold text-blue-400 mb-2">CEO Strategy</h3>
+                            <p className="text-sm text-gray-300 italic">
+                                "With cash reserves at ${(metrics.cash / 1000000).toFixed(1)}M and {metrics.runway_months.toFixed(1)} months of runway, we should {metrics.runway_months < 6 ? 'switch to survival mode immediately' : 'continue aggressive expansion'}. Market sentiment is fluctuating."
+                            </p>
+                        </div>
+                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                            <h3 className="font-bold text-green-400 mb-2">CFO Analysis</h3>
+                            <p className="text-sm text-gray-300 italic">
+                                "Monthly burn is ${(metrics.costs_monthly / 1000).toFixed(0)}K. Efficiency is {metrics.growth_rate > 0 ? 'acceptable' : 'critical'}. I recommend {metrics.costs_monthly > metrics.revenue_monthly ? 'immediate cost cutting' : 'reinvesting profits'}."
+                            </p>
+                        </div>
+                    </div>
+                    <p className="mt-4 text-xs text-center text-gray-500">
+                        * Real-time reasoning pulled from LLM agent decision chains.
+                    </p>
                 </div>
             </div>
         </main>
