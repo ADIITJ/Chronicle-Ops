@@ -43,11 +43,17 @@ async def start_simulation(
         )
         
         # Initialize metrics if needed
-        run.metrics = {
-            "cash": 0, # Should be from blueprint
-            "revenue": 0,
+        initial_metrics = {
+            "cash": 0,
+            "revenue": 0, # Legacy key
+            "revenue_monthly": 0,
+            "costs_monthly": 0,
             "headcount": 0,
-            "growth": 0.0
+            "growth": 0.0, # Legacy key
+            "growth_rate": 0.0,
+            "runway_months": 0,
+            "service_level": 1.0,
+            "compliance_score": 1.0
         }
         
         # We need to fetch blueprint to set initial metrics properly
@@ -55,12 +61,23 @@ async def start_simulation(
         blueprint = db.query(CompanyBlueprint).filter(CompanyBlueprint.id == request.blueprint_id).first()
         if blueprint and blueprint.initial_conditions:
              ic = blueprint.initial_conditions
-             run.metrics = {
-                 "cash": ic.get("cash", 0),
+             cash = ic.get("cash", 0)
+             monthly_burn = ic.get("monthly_burn", 0)
+             
+             initial_metrics.update({
+                 "cash": cash,
                  "revenue": 0,
+                 "revenue_monthly": 0,
+                 "costs_monthly": monthly_burn,
                  "headcount": ic.get("headcount", 0),
-                 "growth": 0.0
-             }
+                 "growth": 0.0,
+                 "growth_rate": 0.0,
+                 "runway_months": cash / monthly_burn if monthly_burn > 0 else 0,
+                 "service_level": 1.0,
+                 "compliance_score": 1.0
+             })
+        
+        run.metrics = initial_metrics
         
         db.add(run)
         db.commit()
