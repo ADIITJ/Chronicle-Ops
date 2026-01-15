@@ -19,6 +19,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database with required seed data"""
+    try:
+        from shared.database import SessionLocal
+        from shared.models import Tenant
+        
+        db = SessionLocal()
+        try:
+            # Check for default tenant
+            default_tenant = db.query(Tenant).filter(Tenant.id == "default-tenant").first()
+            
+            if not default_tenant:
+                print("🌱 Seeding default tenant...")
+                from datetime import datetime
+                
+                tenant = Tenant(
+                    id="default-tenant",
+                    name="ChronicleOps Demo Tenant",
+                    created_at=datetime.utcnow()
+                )
+                db.add(tenant)
+                db.commit()
+                print("✅ Default tenant created")
+            else:
+                print("✅ Default tenant exists")
+                
+        except Exception as e:
+            print(f"❌ Database seed failed: {str(e)}")
+            # Don't crash startup, but log error
+        finally:
+            db.close()
+    except ImportError:
+        print("⚠️ Warning: Could not import shared modules for seeding")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
