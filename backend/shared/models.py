@@ -109,6 +109,7 @@ class SimulationRun(Base):
     agent_config_id = Column(String, ForeignKey("agent_configs.id"), nullable=False)
     seed = Column(Integer, nullable=False)
     status = Column(String, nullable=False, default=RunStatus.CREATED.value)
+    current_tick = Column(Integer, default=0)
     current_time = Column(DateTime)
     final_state = Column(JSON)
     metrics = Column(JSON)

@@ -134,29 +134,96 @@ async def tick_simulation(
     if not run.current_time:
          run.current_time = datetime.utcnow() # Should use timeline start date properly
     
-    # Simulate changes (basic mock logic for MVP)
+    # Simulate changes
     import random
+    from shared.models import EventTimeline, AgentConfig
+    from shared.agent_models import AgentDecision, EventResponse
+    from .agent_logic import run_agent_turn
+    
     metrics = run.metrics or {}
     cash = metrics.get("cash", 1000000)
     burn = metrics.get("monthly_burn", 50000)
     revenue = metrics.get("revenue", 0)
+    current_tick = run.current_tick or 0 # We need to track ticks somewhere. Using 'or 0' if missing.
+    
+    # Get configuration context
+    timeline = db.query(EventTimeline).filter(EventTimeline.id == run.timeline_id).first()
+    agent_config = db.query(AgentConfig).filter(AgentConfig.id == run.agent_config_id).first()
     
     # Apply changes over ticks
     for _ in range(request.ticks):
-        # 1 day per tick? Let's say 1 tick = 1 day
+        current_tick += 1
         run.current_time += timedelta(days=1)
         
-        # Simple math
+        # 1. Check for Events
+        active_events = []
+        if timeline and timeline.events:
+            for evt in timeline.events:
+                # Simple check for exact tick match
+                if evt.get("tick") == current_tick:
+                    active_events.append(evt)
+        
+        # 2. Trigger Agents if Event or Random (1% chance)
+        if active_events or random.random() < 0.05:
+            # Gather state for LLM
+            company_state = {"metrics": {**metrics, "cash": cash, "revenue": revenue, "monthly_burn": burn}}
+            
+            if agent_config and agent_config.agents:
+                for agent_profile in agent_config.agents:
+                    # Run LLM Turn
+                    decision_data = await run_agent_turn(
+                        agent_role=agent_profile.get("role", "Unknown"),
+                        company_state=company_state,
+                        world_events=active_events,
+                        agent_profile=agent_profile
+                    )
+                    
+                    # Store Decision
+                    decision = AgentDecision(
+                        run_id=run.id,
+                        tick=current_tick,
+                        agent_role=agent_profile.get("role"),
+                        observations={"events": active_events, "metrics": company_state},
+                        reasoning=decision_data.get("reasoning", ""),
+                        proposed_actions=decision_data.get("actions", {}),
+                        approved=True,
+                        executed=True
+                    )
+                    db.add(decision)
+                    
+                    # Store Event Response specifically if there was an event
+                    for evt in active_events:
+                        resp = EventResponse(
+                            run_id=run.id,
+                            event_id=str(evt.get("tick")), # minimal ID
+                            tick=current_tick,
+                            agent_role=agent_profile.get("role"),
+                            event_type=evt.get("type", "unknown"),
+                            event_description=evt.get("description", ""),
+                            agent_response=decision_data.get("thought_process") or decision_data.get("reasoning"),
+                            actions_taken=decision_data.get("actions", {})
+                        )
+                        db.add(resp)
+                    
+                    # Apply Actions to Metrics (Simplified)
+                    actions = decision_data.get("actions", {})
+                    if "cost_cut" in actions:
+                        burn *= 0.95
+                    if "marketing_spend" in actions:
+                        cash -= 10000
+                        revenue *= 1.02
+        
+        # Standard financial loop
         daily_burn = burn / 30
         daily_revenue = revenue / 30
         
-        # Random fluctuation
         if random.random() < 0.1:
-            daily_revenue *= 1.05 # Growth
+            daily_revenue *= 1.05 # Organic Growth
         
         cash = cash - daily_burn + daily_revenue
         
     # Update metrics
+    run.current_tick = current_tick # Need to ensure model has this or handle it
     run.metrics = {
         **metrics,
         "cash": cash,
