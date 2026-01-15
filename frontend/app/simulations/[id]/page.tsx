@@ -67,7 +67,10 @@ export default function SimulationPage({ params }: { params: { id: string } }) {
         setStatus(data.status);
 
         // Add to history
-        setHistory(prev => [...prev, { ...data.metrics, current_time: data.current_time }]);
+        setHistory((prev) => {
+            const safePrev = Array.isArray(prev) ? prev : [];
+            return [...safePrev, { ...data.metrics, current_time: data.current_time }];
+        });
         fetchEvents(); // Refresh events
     };
 
@@ -160,13 +163,17 @@ export default function SimulationPage({ params }: { params: { id: string } }) {
                 </div>
 
                 {/* Charts */}
-                {history.length > 0 && (
+                {Array.isArray(history) && history.length > 0 && (
                     <div className="card mb-8">
                         <h2 className="text-2xl font-bold mb-6">Financial Metrics Over Time</h2>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={history}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis dataKey="current_time" stroke="#9CA3AF" />
+                                <XAxis
+                                    dataKey="current_time"
+                                    stroke="#9CA3AF"
+                                    tickFormatter={(str) => new Date(str).toLocaleDateString()}
+                                />
                                 <YAxis stroke="#9CA3AF" />
                                 <Tooltip
                                     contentStyle={{
