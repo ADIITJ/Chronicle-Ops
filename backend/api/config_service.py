@@ -168,7 +168,7 @@ async def create_agent_config(
     db: Session = Depends(get_db)
 ):
     """Create agent configuration with idempotency"""
-    from ..shared.models import AgentConfig
+    from shared.models import AgentConfig
     
     try:
         existing = db.query(AgentConfig).filter(
