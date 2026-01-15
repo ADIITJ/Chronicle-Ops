@@ -40,9 +40,9 @@ from .agent_service import router as agent_router
 from .policy_service import router as policy_router
 from .agent_data_service import router as agent_data_router
 
-# Include routers
-app.include_router(config_router)
-app.include_router(simulation_router)
-app.include_router(agent_router)
-app.include_router(policy_router)
-app.include_router(agent_data_router)
+# Include routers with correct prefixes
+app.include_router(config_router, prefix="/api/v1/config", tags=["config"])
+app.include_router(simulation_router, prefix="/api/v1/simulation", tags=["simulation"])
+app.include_router(agent_router, prefix="/api/v1/agents", tags=["agents"])
+app.include_router(policy_router, prefix="/api/v1/policy", tags=["policy"])
+app.include_router(agent_data_router, prefix="/api/v1/agent-data", tags=["agent-data"])
