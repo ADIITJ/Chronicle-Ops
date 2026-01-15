@@ -154,7 +154,7 @@ export default function BuilderPage() {
                     <div className="card animate-fade-in">
                         <h2 className="text-2xl font-bold mb-6">Select Industry Template</h2>
                         <div className="grid md:grid-cols-2 gap-4">
-                            {industries.map((ind) => (
+                            {templates.map((ind) => (
                                 <button
                                     key={ind.id}
                                     onClick={() => setBlueprint({ ...blueprint, industry: ind.id })}
